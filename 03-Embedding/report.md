@@ -52,3 +52,12 @@ Paragraph → **split** on `.` → 50 sentence chunks
 * This shows the embeddings encode semantic meaning, not just surface wording — the model places chunks in vector space so that similar topics are geometrically closer
 * A new query embeds into the region of its nearest topic
 * The sentence closest to the query gets the highest cosine similarity score, which is what the top-K retrieval step relies on
+
+---
+
+### Why brute force doesn't scale?
+
+* Brute force we use approach of comparing one query to all the 50 chunks. Not only that, after it you find cosine similarity with each 50 chunks and then sort and top-k
+* But if no of chunks increases to 1,000,000 or 100,000,000, it means 100,000 comparisons and 100,000 computations
+* It make system slow and not applicable for larger systems
+* We use instead ANN/HNSW for larger dataset of chunks

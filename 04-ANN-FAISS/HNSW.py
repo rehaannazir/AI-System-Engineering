@@ -1,4 +1,6 @@
 import os
+import faiss
+import numpy as np
 from google import genai
 from dotenv import load_dotenv
 from google.genai import types
@@ -30,7 +32,24 @@ query = "I love to do coding in silence"
 response = client.models.embed_content(
     model="gemini-embedding-001",
     contents=query,
-    config=types.EmbedContentConf(task_type="SEMANTIC_SIMILARITY"),
+    config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
 )
 
 query_vector = response.embeddings[0].values
+
+vectors = np.array(vectors, dtype="float32")
+query_vector = np.array([query_vector], dtype="float32")
+
+dimension = query_vector.shape[1]
+
+index = faiss.IndexHNSWFlat(dimension, 5)
+
+index.add(vectors)
+
+distances, indexes = index.search(query_vector, 3)
+
+print("Indexes")
+print(indexes)
+
+print("Distances")
+print(distances)

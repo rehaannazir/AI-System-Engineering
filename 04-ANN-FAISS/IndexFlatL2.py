@@ -1,4 +1,5 @@
 import os
+import faiss
 from google import genai
 from dotenv import load_dotenv
 from google.genai import types
@@ -12,6 +13,8 @@ Artificial Intelligence enables computers to perform tasks that normally require
 
 clusters = [s.strip() for s in para.split(".") if s.strip()]
 
+vectors = []
+
 for sentence in clusters:
 
     response = client.models.embed_content(
@@ -19,3 +22,18 @@ for sentence in clusters:
         contents=sentence,
         config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
     )
+
+    vectors.append(response.embeddings[0].values)
+
+query = "I love to do coding in silence"
+
+
+response = client.models.embed_content(
+    model="gemini-embedding-001",
+    contents=query,
+    config=types.EmbedContentConf(task_type="SEMANTIC_SIMILARITY"),
+)
+
+query_vector = response.embeddings[0].values
+
+dimension = query_vector

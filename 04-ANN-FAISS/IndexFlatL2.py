@@ -1,5 +1,7 @@
 import os
 import faiss
+import numpy as np
+import time
 from google import genai
 from dotenv import load_dotenv
 from google.genai import types
@@ -14,6 +16,7 @@ Artificial Intelligence enables computers to perform tasks that normally require
 clusters = [s.strip() for s in para.split(".") if s.strip()]
 
 vectors = []
+i = 0
 
 for sentence in clusters:
 
@@ -24,6 +27,11 @@ for sentence in clusters:
     )
 
     vectors.append(response.embeddings[0].values)
+    print(f"cluster {i+1} is appended")
+    i += 1
+    time.sleep(5)
+
+print("Loop is completed successfully")
 
 query = "I love to do coding in silence"
 
@@ -31,9 +39,28 @@ query = "I love to do coding in silence"
 response = client.models.embed_content(
     model="gemini-embedding-001",
     contents=query,
-    config=types.EmbedContentConf(task_type="SEMANTIC_SIMILARITY"),
+    config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
 )
 
 query_vector = response.embeddings[0].values
+query_vector = np.array([query_vector], dtype="float32")
 
-dimension = query_vector
+dimension = query_vector.shape[1]
+
+index = faiss.IndexFlatL2(dimension)
+
+vectors = np.array(vectors, dtype="float32")
+index.add(vectors)
+
+distances, indexes = index.search(query_vector, k=3)
+
+print("Indexes")
+print(indexes)
+
+print("Distances")
+print(distances)
+
+print("ntotal:", index.ntotal)
+print("num sentences:", len(clusters))
+print(np.array_equal(vectors[0], vectors[1]))
+print(np.array_equal(vectors[0], vectors[5]))

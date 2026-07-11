@@ -1,4 +1,7 @@
 import os
+import time
+import faiss
+import numpy as np
 from google import genai
 from dotenv import load_dotenv
 from google.genai import types
@@ -13,6 +16,7 @@ Artificial Intelligence enables computers to perform tasks that normally require
 clusters = [s.strip() for s in para.split(".") if s.strip()]
 
 vectors = []
+i = 0
 
 for sentence in clusters:
 
@@ -23,6 +27,11 @@ for sentence in clusters:
     )
 
     vectors.append(response.embeddings[0].values)
+    print(f"cluster {i+1} is appended")
+    i += 1
+    time.sleep(5)
+
+print("Loop is completed successfully")
 
 query = "I love to do coding in silence"
 
@@ -30,7 +39,32 @@ query = "I love to do coding in silence"
 response = client.models.embed_content(
     model="gemini-embedding-001",
     contents=query,
-    config=types.EmbedContentConf(task_type="SEMANTIC_SIMILARITY"),
+    config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
 )
 
 query_vector = response.embeddings[0].values
+
+vectors = np.array(vectors, dtype="float32")
+query_vector = np.array([query_vector], dtype="float32")
+
+dimension = query_vector.shape[1]
+
+centroid = faiss.IndexFlatL2(dimension)
+
+nlist = 3
+
+index = faiss.IndexIVFFlat(centroid, dimension, nlist, faiss.METRIC_L2)
+
+index.train(vectors)  # Perform K-Mean Clustering
+
+index.add(vectors)
+
+index.nprobe = 1
+
+distances, indexes = index.search(query_vector, 3)
+
+print("Indexes")
+print(indexes)
+
+print("Distances")
+print(distances)

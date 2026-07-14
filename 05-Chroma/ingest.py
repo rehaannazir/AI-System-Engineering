@@ -17,7 +17,7 @@ ids = []
 
 for source in sources:
     text = extract_text(source)
-    chunks = to_chunks(text)
+    chunks = to_chunks(text, chunk_size=1000)
 
     for i, chunk in enumerate(chunks):
         documents.append(chunk)
@@ -25,6 +25,11 @@ for source in sources:
         ids.append(f"{source}_{i}")
 
 embeddings = embed_texts(client, documents)
+
+try:
+    chrom.delete_collection(name="Docs")
+except (ValueError, chromadb.errors.NotFoundError):
+    pass
 
 collection = chrom.get_or_create_collection(
     name="Docs", metadata={"hnsw:space": "cosine"}

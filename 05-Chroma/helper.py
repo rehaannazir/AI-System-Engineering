@@ -9,7 +9,7 @@ def extract_text(path):
     return "".join(page.get_text() for page in doc)
 
 
-def to_chunks(text, chunk_size=500, overlap=100):
+def to_chunks(text, chunk_size, overlap=100):
     chunks = []
     start = 0
 

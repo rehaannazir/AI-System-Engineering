@@ -1,81 +1,65 @@
-# Results — Chroma Chunk-Size Experiment
-
-**Query:** `"How do message queues help with high traffic APIs?"`
-
-Corpus: `container_orchestr.pdf`, `high_traffic_apis.pdf`, `message_queues.pdf` — extracted with PyMuPDF (`fitz`), split into overlapping character chunks, embedded with `gemini-embedding-001` (`SEMANTIC_SIMILARITY` task type), stored in a persistent Chroma collection (`hnsw:space: cosine`), retrieved top-3 nearest neighbors.
-
-`ingest.py` was re-run with `to_chunks(text, chunk_size=...)` set to **300**, then **500**, then **1000** (overlap fixed at 100), and `query.py` was re-run after each.
-
-## Raw Results
-
-| chunk_size | Rank | Source | chunk_index | Distance |
-|---|---|---|---|---|
-| 300 | 1 | high_traffic_apis.pdf | 0 | 0.1453 |
-| 300 | 2 | message_queues.pdf | 0 | 0.1462 |
-| 300 | 3 | message_queues.pdf | 17 | 0.1556 |
-| 500 | 1 | high_traffic_apis.pdf | 0 | 0.1453 |
-| 500 | 2 | message_queues.pdf | 0 | 0.1462 |
-| 500 | 3 | message_queues.pdf | 17 | 0.1556 |
-| 1000 | 1 | high_traffic_apis.pdf | 0 | 0.1453 |
-| 1000 | 2 | message_queues.pdf | 0 | 0.1462 |
-| 1000 | 3 | message_queues.pdf | 17 | 0.1556 |
-
-Same sources, same `chunk_index` values, same distances to **four decimal places**, same chunk text printed to the console — for three supposedly different chunk sizes.
-
-## What this actually shows (and what it doesn't)
-
-At first glance this looks like "retrieval is robust to chunk size." It isn't — this is a pipeline artifact, not a robustness result. The identical output is explained by how `ingest.py` and Chroma's `PersistentClient` interact, not by chunking having no effect on the embeddings.
-
-**The mechanism:**
-
-1. `chrom = chromadb.PersistentClient("./chroma.db")` points at the same on-disk store across every run — nothing resets it between the 300/500/1000 experiments.
-2. `ids.append(f"{source}_{i}")` in [ingest.py:25](05-Chroma/ingest.py#L25) is **deterministic and chunk-size-independent** — chunk 0 of `message_queues.pdf` is always id `message_queues.pdf_0`, regardless of whether chunk_size is 300 or 1000.
-3. `collection.add(...)` ([ingest.py:33](05-Chroma/ingest.py#L33)) does not overwrite existing ids. Chroma treats `add()` as insert-only: if an id already exists in the collection, that call is a silent no-op for that id — the original embedding and document text stay exactly as they were on first insert.
-4. `get_or_create_collection(name="Docs", ...)` ([ingest.py:29](05-Chroma/ingest.py#L29)) means every re-run reattaches to the *same* collection instead of starting fresh.
-
-So the very first `ingest.py` run (whatever chunk_size was live at the time) populated ids like `high_traffic_apis.pdf_0`, `message_queues.pdf_0`, `message_queues.pdf_17`. Every subsequent re-run — with chunk_size changed to 300, then 500, then 1000 — tried to re-add content under those same ids and was ignored. `query.py` was therefore always searching against embeddings from the *original* ingest, never the ones the later chunk_size values were supposed to produce.
-
-This is also why the result is a strong signal rather than a coincidence: `message_queues.pdf_17` existing in *all three* runs is very unlikely to happen by chance if chunking had actually changed. With `chunk_size=300`, `overlap=100`, chunk 17 sits around character ~4,000; with `chunk_size=1000`, chunk 17 sits around character ~15,300 — those are different regions of the document. Getting the same index *and* the same chunk text *and* the same distance to 4 decimal places across both is only possible if the underlying stored chunk never changed at all.
-
-## Workflow, as the code actually runs it
-
-**Ingestion (`ingest.py` + `helper.py`):**
-
-```
-for each PDF in sources:
-    extract_text()        → fitz opens the PDF, concatenates page.get_text() for all pages
-    to_chunks()            → sliding window: chunks[i] = text[start : start+chunk_size]
-                              start advances by (chunk_size - overlap) each step
-    → documents[], metadatas=[{source, chunk_index}], ids=[f"{source}_{i}"]
-
-embed_texts(all documents)  → one Gemini embed_content call per chunk,
-                               task_type=SEMANTIC_SIMILARITY, 1s sleep between calls (rate limiting)
-
-chrom.get_or_create_collection("Docs", hnsw:space=cosine)
-collection.add(ids, documents, embeddings, metadatas)
-    → new ids inserted; ids that already exist in "Docs" are skipped
-```
-
-**Query (`query.py`):**
-
-```
-chrom.get_or_create_collection("Docs", ...)   → reattaches to the same persistent collection
-query_embed = embed_texts([query])[0]          → same embedding model/task_type as ingestion
-collection.query(query_embeddings=[query_embed], n_results=3)
-    → Chroma's HNSW index does approximate nearest-neighbor search over cosine distance
-for each of the 3 hits: print source, chunk_index, distance, chunk text
-```
-
-Nothing in this flow ever deletes or replaces prior data — `./chroma.db` is purely additive across runs unless ids collide *and* an explicit `upsert` is used instead of `add`.
-
-## What a real chunk-size comparison would need
-
-To actually measure how chunk_size affects retrieval, the collection must not be shared/stale across trials. Options, in order of simplicity:
-
-1. **Fresh collection per trial** — `chrom.delete_collection("Docs")` before each `get_or_create_collection` call, or name the collection per chunk_size (`Docs_300`, `Docs_500`, `Docs_1000`) so trials don't collide.
-2. **`collection.upsert()` instead of `collection.add()`** — upsert overwrites existing ids with new embeddings/documents, so re-ingesting with a new chunk_size actually replaces the old chunks (works only if the *number* of chunks per source doesn't shrink between runs, otherwise stale high-index ids from a smaller chunk_size run linger).
-3. **Wipe `./chroma.db` on disk** between trials — bluntest, but guarantees no leftover ids.
-
-## Takeaway
-
-The experiment as run doesn't demonstrate that retrieval is chunk-size-invariant for this query — it demonstrates that `ingest.py`'s combination of deterministic ids, a persistent collection, and insert-only `add()` makes repeated ingestion runs silently idempotent after the first one. The "300 vs 500 vs 1000" comparison never actually reached the query step with different data. Rerunning with collection reset (option 1 or 2 above) is required before any conclusion about chunk_size's effect on retrieval quality can be drawn.
+**Task:** Ingest 3 real PDFs into a persistent Chroma store, split with `RecursiveCharacterTextSplitter` at **300 / 500 / 1000** characters (10–20% overlap), and compare retrieval quality for the *same* question across all three chunk sizes.
+ 
+**Corpus:** `high_traffic_apis.pdf`, `container_orchestration.pdf`, `message_queues.pdf` (4 pages each).
+ 
+**Method:** For each query, retrieve top-k from each chunk-size collection and inspect (a) completeness of the retrieved text, (b) redundancy across the top-k, and (c) similarity/distance scores. Lower Chroma distance = closer match.
+ 
+---
+ 
+## Finding 1 — Coverage query: "What techniques protect against a cache stampede?"
+ 
+This is a **breadth** question — the correct answer lists several distinct techniques (locking, jittered expiration, probabilistic early expiration). It tests whether the retrieved chunks collectively cover the full answer.
+ 
+### What was observed
+ 
+| Chunk size | Best distance | Completeness of chunks | Redundancy in top-k |
+|-----------|--------------|------------------------|---------------------|
+| **300** | **0.1286** (lowest) | Poor — most chunks end mid-word (`"commonly app"`, `"or pro"`) | **High** — chunks #29/#30/#41 overlap heavily, repeating the same 1–2 techniques |
+| **500** | 0.1363 | Mixed — one chunk cut mid-sentence; one chunk was *only* the summary line, stripped of technique names | Moderate |
+| **1000** | 0.1467 (highest) | **Best** — 3 chunks covered 3 genuinely different techniques + summary | **Low** — each chunk carried a distinct concept |
+ 
+### Observations that cannot be ignored
+ 
+- **Lower distance ≠ better retrieval.** The 300-char collection produced the *lowest* (best-looking) distance score but the *least usable* result. The 1000-char collection had the highest distance yet delivered the most complete, least redundant evidence. **Similarity score and end-usefulness are not the same metric** — this is the single most important takeaway from Day 5.
+- **Small chunks fragment concepts.** At 300 chars, chunks routinely end mid-word, so a single technique's explanation is split across two chunks. Answering correctly then depends on *both* fragments being retrieved together, which is not guaranteed.
+- **Overlap compounds redundancy at small sizes.** The 10–20% overlap setting, combined with small chunks, produced near-duplicate retrievals (the same sentence sliced three ways). Small chunk size did **not** deliver its theoretical "more diversity per top-k" benefit here — it delivered *repetition* instead.
+- **1000 chars won this query** on completeness and coverage, despite ranking worst on raw distance.
+---
+ 
+## Finding 2 — Trap query: "How do you configure a visibility timeout in Redis?"
+ 
+This query is **deliberately unanswerable**: "visibility timeout" is a message-queue concept (`message_queues.pdf`); "Redis" only appears as a *caching* example (`high_traffic_apis.pdf`). No chunk in the corpus discusses both together, because that combination does not exist in the source material.
+ 
+### What was observed
+ 
+| Chunk size | Top hits | TTL/caching distractor rank |
+|-----------|----------|----------------------------|
+| **300** | Visibility-timeout chunks from `message_queues.pdf` (dist 0.187) | TTL chunk from `high_traffic_apis.pdf` ranked lower at 0.2027 |
+| **500** | Same — queue chunks on top (dist 0.188) | TTL distractor at 0.2120 |
+| **1000** | Same — queue chunk on top (dist 0.189) | Caching chunks at 0.216 / 0.233 |
+ 
+### Observations that cannot be ignored
+ 
+- **Retrieval was NOT fooled by the keyword "Redis."** Despite the query literally containing "Redis," the embedding correctly ranked *message-queue* visibility-timeout content above *caching* content across all three chunk sizes. The system retrieved on **meaning, not keyword overlap** — a genuine positive result, and evidence that dense retrieval behaves differently from keyword search.
+- **The caching distractor is consistently present but consistently lower-ranked** (~0.20–0.23 vs ~0.19). Retrieval ordering is correct; the wrong-domain chunk never displaces the right-domain one.
+- **The real risk sits at the generation step, not retrieval.** Because no chunk actually answers the question, the generation step must be tested separately for one of three outcomes:
+  1. **Faithful (score 5):** model states the context describes queue visibility timeouts, not Redis, and refuses to fabricate.
+  2. **Silent blend:** model applies queue content to Redis, producing a plausible but fabricated answer.
+  3. **Ungrounded:** model ignores context entirely and answers from pretrained Redis knowledge (`EXPIRE`/TTL) without flagging it isn't in the documents.
+- **Action:** this query is the strongest failure-mode probe in the set. Its *generated answer* (not just retrieval) must be scored in the Day 6 naive-RAG exercise. **[OPEN ITEM — generation output not yet captured.]**
+---
+ 
+## Consolidated conclusions
+ 
+1. **Chunk size is a breadth-vs-completeness trade-off, not a "best value" to find.**
+   - Smaller chunks → sharper embeddings, lower distance scores, but fragmented concepts and (with overlap) redundant top-k.
+   - Larger chunks → more self-contained, more complete answers, but fewer distinct chunks fit in a fixed context/token budget.
+2. **Do not rank chunk sizes by distance score alone.** On the coverage query, the lowest-distance configuration (300) was the least useful. Judge by whether the retrieved set actually contains a complete, non-redundant answer.
+3. **Default choice for this corpus: 1000 chars.** These documents explain concepts in full paragraphs where the claim and its justification sit together; larger chunks preserve that. A corpus of short, self-contained facts (e.g., a glossary or FAQ) could reasonably favor smaller chunks — the right size is corpus-dependent, and this conclusion should not be generalized beyond documents of this shape.
+4. **Overlap needs re-tuning at small chunk sizes.** The current 10–20% overlap produced near-duplicate retrievals at 300 chars. If small chunks are used later, overlap should be reduced, or a de-duplication step added to the retriever.
+---
+ 
+## Open items carried forward
+ 
+- [ ] Capture and faithfulness-score the **generated** answer for the Redis/visibility-timeout trap query (Day 6).
+- [ ] Day 4 benchmark rerun on **clustered** synthetic data (uniform-random data produced 0/5 and 2/5 recall — unresolved).

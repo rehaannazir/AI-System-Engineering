@@ -36,7 +36,7 @@ if not doc_chunks:
     raise ValueError(f"No extractable text found in {PDF_PATH}")
 
 # Getting user  query
-query = input("\n Enter your query: ")
+query = input("\nEnter your query: ")
 
 # Generating Vector Store
 vector_store = FAISS.from_texts(texts=doc_chunks, embedding=embedding)
@@ -89,20 +89,20 @@ chain = (
 # print(answer)
 
 # Stream response
-# full_text = ""
+full_text = ""
 
-# for chunk in chain.stream(query):
-#     if chunk:
-#         full_text += chunk
-#         for char in chunk:
-#             print(char, end="", flush=True)
-#             time.sleep(0.02)
+for chunk in chain.stream(query):
+    if chunk:
+        full_text += chunk
+        for char in chunk:
+            print(char, end="", flush=True)
+            time.sleep(0.02)
 
 # Batch response
-queries = ["What is Kubernetes?", "What is Docker?", "What is container orchestration?"]
+# queries = ["What is Kubernetes?", "What is Docker?", "What is container orchestration?"]
 
-answers = chain.batch(queries)
+# answers = chain.batch(queries)
 
-for answer in answers:
-    print(answer)
-    print("\n\n\n---------------------------------------------------")
+# for answer in answers:
+#     print(answer)
+#     print("\n\n\n---------------------------------------------------")

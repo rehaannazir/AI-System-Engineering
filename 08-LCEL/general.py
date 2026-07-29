@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from langchain_google_genai import GoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -9,7 +9,7 @@ load_dotenv()
 
 # Converting normal vars into runnables
 
-llm = GoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
 prompt_template = ChatPromptTemplate.from_template("""
 You are a teacher and mentor of students.

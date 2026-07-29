@@ -55,13 +55,22 @@ response = client.models.embed_content(
     config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY"),
 )
 
-query_vec = response.embeddings[0].values
+embeddings = response.embeddings
+if not embeddings or embeddings[0].values is None:
+    raise RuntimeError("Failed to generate an embedding for the query")
+
+query_vec = embeddings[0].values
 
 # Retrieving
 result = collection.query(query_embeddings=[query_vec], n_results=3)
 
-context = result["documents"][0]
-source = result["metadatas"][0]
+documents = result["documents"]
+metadatas = result["metadatas"]
+if documents is None or metadatas is None:
+    raise RuntimeError("Query returned no results")
+
+context = documents[0]
+source = metadatas[0]
 
 # Augmenting (Context Stuffing)
 prompt = f"""

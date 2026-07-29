@@ -1,4 +1,6 @@
-import fitz
+import sys
+import time
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import (
@@ -10,6 +12,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(REPO_ROOT / "06-Naive RAG"))
+from helper import extract_text, to_chunks  # noqa: E402
+
 # Loading values from env
 load_dotenv()
 
@@ -19,24 +25,18 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 # Making Embedding Model
 embedding = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
-# Loading text from DOC
-doc = fitz.open("06-Naive RAG/container_orchestr.pdf")
-doc_text = "".join(page.get_text() for page in doc)
+# Loading text from DOC (path resolved relative to the repo root, not the CWD)
+PDF_PATH = REPO_ROOT / "06-Naive RAG" / "container_orchestr.pdf"
+doc_text = extract_text(str(PDF_PATH))
 
 # Generating chunks from text
-start = 0
-overlap = 100
-chunk_size = 500
-doc_chunks = []
+doc_chunks = to_chunks(doc_text, chunk_size=500, overlap=100)
 
-while start < len(doc_text):
-    end = start + chunk_size
-    doc_chunks.append(doc_text[start:end])
-    start = end - overlap
+if not doc_chunks:
+    raise ValueError(f"No extractable text found in {PDF_PATH}")
 
 # Getting user  query
 query = input("\n Enter your query: ")
-query_vector = embedding.embed_query(query)
 
 # Generating Vector Store
 vector_store = FAISS.from_texts(texts=doc_chunks, embedding=embedding)
@@ -84,6 +84,25 @@ chain = (
     | parser
 )
 
+# Simple response
+# answer = chain.invoke(query)
+# print(answer)
 
-answer = chain.invoke(query)
-print(answer)
+# Stream response
+# full_text = ""
+
+# for chunk in chain.stream(query):
+#     if chunk:
+#         full_text += chunk
+#         for char in chunk:
+#             print(char, end="", flush=True)
+#             time.sleep(0.02)
+
+# Batch response
+queries = ["What is Kubernetes?", "What is Docker?", "What is container orchestration?"]
+
+answers = chain.batch(queries)
+
+for answer in answers:
+    print(answer)
+    print("\n\n\n---------------------------------------------------")

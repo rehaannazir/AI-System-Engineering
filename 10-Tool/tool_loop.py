@@ -10,9 +10,11 @@ from langchain_core.messages import ToolMessage
 
 load_dotenv()
 
+# Getting path of JSON File
 CRM_DATA_PATH = os.path.join(os.path.dirname(__file__), "crm_data.json")
 
 
+# Making tools for LLM manually
 @tool
 def check_weather(city: str) -> dict:
     """Give me weather of provided city"""
@@ -79,6 +81,7 @@ def calculator(x: int, y: int, op: str):
         return {"error": "Cannot divide by zero. Enter a valid value for y"}
 
 
+# LLM with retries and tools act as agent
 llm_agent = (
     ChatGoogleGenerativeAI(model="gemini-2.5-flash")
     .bind_tools([check_weather, check_crm, calculator])
@@ -124,6 +127,7 @@ plain language instead of retrying again.
 - Once you have everything you need, give a clear, concise final answer grounded only \
 in the tool outputs and the conversation so far."""
 
+# Generating prompt runnable
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_PROMPT),
@@ -131,6 +135,7 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+# Making Tools dict to use in recursive calling
 tools = {
     "check_weather": check_weather,
     "check_crm": check_crm,
@@ -138,6 +143,7 @@ tools = {
 }
 
 
+# Helper query runnable to give required dict to prompt
 def get_query(query):
     return {"query": query}
 
@@ -145,6 +151,7 @@ def get_query(query):
 query = RunnableLambda(get_query)
 
 
+# Actual Agent haveing tools when get query returns AI Message
 def run_agent(user_query: str):
     chain = query | prompt
     messages = chain.invoke(user_query).to_messages()  # [SYSTEM Message, HUMAN Message]
@@ -153,29 +160,33 @@ def run_agent(user_query: str):
 
     while True:
 
-        if answer.tool_calls:
+        if answer.tool_calls:  # If AI Message have un-empty tool_calls list
 
-            messages.append(answer)
+            messages.append(answer)  # To take history of LLM Responses (AI Messages)
 
-            for i in answer.tool_calls:
+            for i in answer.tool_calls:  # We may have multiple tools at one call
 
                 tool_name = i["name"]
                 tool_args = i["args"]
 
-                messages.append(
+                messages.append(  # To make history of our responses (Tool Messages)
                     ToolMessage(
-                        content=json.dumps(tools[tool_name].invoke(tool_args)),
+                        content=json.dumps(
+                            tools[tool_name].invoke(tool_args)
+                        ),  # function excuted by python given by LLM
                         tool_call_id=i["id"],
                     )
                 )
 
-            answer = llm_agent.invoke(messages)
+            answer = llm_agent.invoke(
+                messages
+            )  # LLM excutes messages(including history to get better approach) until get final result
 
             continue
 
         else:
 
-            return answer.content
+            return answer.content  # It will be empty until LLM make final response
 
 
 if __name__ == "__main__":

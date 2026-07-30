@@ -1,0 +1,84 @@
+{
+  "customers": [
+    {
+      "id": 1,
+      "name": "Ayesha Khan",
+      "email": "ayesha.khan@example.com",
+      "phone": "+92-300-1234567",
+      "company": "Nimbus Retail",
+      "status": "active",
+      "deal_value": 15000,
+      "last_contacted": "2026-06-12"
+    },
+    {
+      "id": 2,
+      "name": "Daniel Reyes",
+      "email": "daniel.reyes@example.com",
+      "phone": "+1-415-555-0182",
+      "company": "Brightline Logistics",
+      "status": "lead",
+      "deal_value": 4200,
+      "last_contacted": "2026-07-02"
+    },
+    {
+      "id": 3,
+      "name": "Meera Nair",
+      "email": "meera.nair@example.com",
+      "phone": "+91-98-7654-3210",
+      "company": "Solstice Analytics",
+      "status": "active",
+      "deal_value": 32000,
+      "last_contacted": "2026-07-20"
+    },
+    {
+      "id": 4,
+      "name": "Tom Fischer",
+      "email": "tom.fischer@example.com",
+      "phone": "+49-171-2345678",
+      "company": "Ferndale GmbH",
+      "status": "churned",
+      "deal_value": 0,
+      "last_contacted": "2026-03-15"
+    },
+    {
+      "id": 5,
+      "name": "Grace Owusu",
+      "email": "grace.owusu@example.com",
+      "phone": "+233-24-555-9988",
+      "company": "Harbor & Vine Co.",
+      "status": "lead",
+      "deal_value": 7800,
+      "last_contacted": "2026-07-25"
+    },
+    {
+      "id": 6,
+      "name": "Li Wei",
+      "email": "li.wei@example.com",
+      "phone": "+86-138-0013-8000",
+      "company": "Jade Peak Manufacturing",
+      "status": "active",
+      "deal_value": 54000,
+      "last_contacted": "2026-07-28"
+    },
+    {
+      "id": 7,
+      "name": "Sofia Marchetti",
+      "email": "sofia.marchetti@example.com",
+      "phone": "+39-333-1122334",
+      "company": "Marchetti Design Studio",
+      "status": "prospect",
+      "deal_value": 1200,
+      "last_contacted": "2026-07-29"
+    },
+    {
+      "id": 8,
+      "name": "James O'Connell",
+      "email": "james.oconnell@example.com",
+      "phone": "+353-87-6543210",
+      "company": "Kilbride Financial",
+      "status": "active",
+      "deal_value": 18900,
+      "last_contacted": "2026-07-18"
+    }
+  ]
+}

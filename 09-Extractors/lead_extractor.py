@@ -44,6 +44,7 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+# Just giving user interface a classy touch
 print(
     """╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
@@ -61,8 +62,8 @@ print(
 
 email = input("\nHow can we help you?\n")
 
+# Generating chain
 chain = prompt | structured_llm
-
 answer = chain.invoke({"email": email})
 
 print(f"\n\n {answer}")

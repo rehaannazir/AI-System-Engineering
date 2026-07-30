@@ -5,9 +5,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 
+# Loading env variables
 load_dotenv()
 
 
+# Required output schemas
 class Decision(BaseModel):
     decision: str = Field(
         description="What was decided, stated as a single clear sentence"
@@ -41,6 +43,7 @@ class Risk(BaseModel):
     )
 
 
+# Main Schema for LLM
 class Summary(BaseModel):
     title: str = Field(description="A short title summarizing the meeting's main topic")
     decisions: List[Decision] = Field(
@@ -54,11 +57,13 @@ class Summary(BaseModel):
     )
 
 
+# Preparing the structured LLM
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash", response_mime_type="application/json"
 )
 structured_llm = llm.with_structured_output(Summary)
 
+# Making the Prompt Runnable
 prompt = ChatPromptTemplate.from_messages(
     [
         (
@@ -77,6 +82,7 @@ prompt = ChatPromptTemplate.from_messages(
 )
 
 
+# As our prompt need dictionary
 def get_notes(transcript):
 
     return {"transcript": transcript}
@@ -97,6 +103,7 @@ Dana: one more risk — our lead DBA is going on leave starting next week, so if
 Sam: I'll loop in her backup and get a handoff doc going, low effort, should be quick
 """
 
+# Generating chain
 chain = get_transcript | prompt | structured_llm
 answer = chain.invoke(transcript)
 

@@ -9,7 +9,7 @@ load_dotenv()
 
 brain = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
-session_id = "user_1"
+session_id = "user_2"
 TOKEN_LIMIT = 500
 FRESH_TOKENS = 250
 
@@ -61,7 +61,9 @@ def history_check():
     history_tokens = count_tokens(history.messages)
 
     if history_tokens >= TOKEN_LIMIT:
-
+        print(
+            "--------------------- Summarization --------------------------------------"
+        )
         conversation = history.messages
         cur_tokens = 0
         recent_chat = []
@@ -98,11 +100,10 @@ chatbot = RunnableWithMessageHistory(
     history_messages_key="history",
 )
 
-
+print("\n******************* <>CHAT STARTED<> ***********************")
 while True:
-    print("******************* <>CHAT STARTED<> ***********************")
     history_check()
-    query = input("\n\n>>> ")
+    query = input("\n>>> ")
 
     if query.lower().strip() not in ["quit", "exit"]:
 
@@ -112,5 +113,5 @@ while True:
         )
         print(f">>> {response.content}")
     else:
-        print("******************* <>CHAT ENDED<> ***********************")
+        print("\n******************* <>CHAT ENDED<> ***********************")
         break

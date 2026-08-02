@@ -1,0 +1,132 @@
+# Caching Strategies for High-Traffic APIs
+
+This document exists to practice markdown ingestion rules: header-aware
+splitting, metadata tagging by section, and multi-level hierarchy handling.
+It goes four levels deep (H1 -> H2 -> H3 -> H4) on purpose.
+
+## 1. Why Caching Matters
+
+Caching trades memory for latency. Instead of recomputing or re-fetching
+expensive data on every request, the system stores a copy somewhere faster
+to access, so repeated requests are served near-instantly.
+
+### 1.1 Latency Reduction
+
+A cache hit can return a response in microseconds, versus the tens or
+hundreds of milliseconds a database round trip typically costs. This
+difference compounds across a request chain that touches multiple services.
+
+### 1.2 Backend Protection
+
+Every request served from cache is a request the database never sees. Under
+high traffic, this is often the only thing standing between a normal load
+and a cascading outage.
+
+## 2. Cache Placement
+
+Caches can live at several layers of a system, and each layer trades off
+differently between speed, scope, and staleness risk.
+
+### 2.1 Client-Side Caching
+
+The fastest possible option because it avoids the network entirely, but it
+only benefits a single client and cannot be centrally invalidated.
+
+#### 2.1.1 Browser Cache
+
+Stores responses keyed by URL and headers like `Cache-Control` and `ETag`,
+governed entirely by the browser and the response headers the server sends.
+
+#### 2.1.2 Mobile Local Store
+
+A mobile app's own on-device store (SQLite, key-value store, or file cache),
+useful for offline-first behavior but requires explicit app-level eviction.
+
+### 2.2 Edge / CDN Caching
+
+Sits geographically close to users and is excellent for static or
+semi-static assets, but a poor fit for per-user or highly dynamic data.
+
+### 2.3 Application-Level Caching
+
+Usually backed by Redis or Memcached, sitting between the application
+server and the database. This is the layer engineers usually mean when they
+say "the cache," because it is shared across every instance of a service.
+
+### 2.4 In-Process Caching
+
+Lives inside the application's own memory. Extremely fast, but does not
+scale across multiple server instances unless paired with a shared
+invalidation mechanism.
+
+## 3. Cache-Aside Pattern
+
+The most common caching pattern in production systems, sometimes called
+lazy-loading.
+
+### 3.1 How It Works
+
+The application checks the cache first. On a miss, it fetches from the
+source of truth, stores the result in the cache, then returns it. On a hit,
+it returns the cached value directly and never touches the database.
+
+### 3.2 Thundering Herd Problem
+
+If many clients request the same uncached key at once, all of them can hit
+the database simultaneously. A short-lived lock or request-coalescing
+mechanism keeps only one request responsible for repopulating the cache.
+
+## 4. Write Strategies
+
+### 4.1 Write-Through
+
+Every write to the database is immediately mirrored into the cache, so the
+cache is never stale right after a write, at the cost of added write latency.
+
+### 4.2 Write-Behind
+
+Writes to the cache immediately and defers the database write to happen
+asynchronously. Minimizes write latency but risks losing data if the cache
+crashes before the deferred write completes.
+
+## 5. Invalidation Strategies
+
+### 5.1 TTL Expiration
+
+The simplest approach: a cached entry automatically expires after a fixed
+duration. Easy to reason about, but creates a trade-off between staleness
+and cache efficiency.
+
+### 5.2 Event-Based Invalidation
+
+Whenever the underlying data changes, the application explicitly deletes or
+updates the corresponding cache entry. Accurate, but every write path must
+remember to invalidate the right keys.
+
+### 5.3 Stale-While-Revalidate
+
+A cache entry has a soft TTL and a hard TTL. Past the soft TTL, the cache
+still serves the stale value immediately while triggering a background
+refresh, so no single request is blocked on a slow upstream fetch.
+
+## 6. Stampede Protection
+
+A cache stampede occurs when a popular key expires and a large volume of
+concurrent requests all try to regenerate it at once.
+
+### 6.1 Locking
+
+A short-lived lock ensures only one request regenerates the value while
+others wait for the result instead of all hitting the backend.
+
+### 6.2 Jittered TTLs
+
+Randomizing each entry's TTL slightly (for example, plus or minus ten
+percent) prevents a large batch of keys written together from all expiring
+in the same millisecond.
+
+### 6.3 Probabilistic Early Expiration
+
+As an entry approaches expiration, each request gets a small and increasing
+probability of proactively triggering a refresh early, spreading
+regeneration cost out over time.

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LangGraph Overview</title>
+</head>
+<body>
+<h1>LangGraph</h1>
+
+<h2>1. What It Is</h2>
+<p>LangGraph is a low-level orchestration library, built by the LangChain
+team, for constructing stateful, multi-actor applications as a graph of
+nodes and edges. It was released in January 2024 to address workflows that
+plain LCEL chains cannot express: loops, branching, and persistent state.</p>
+
+<h2>2. Core Concepts</h2>
+
+<h3>2.1 State</h3>
+<p>A shared, typed object (often a <code>TypedDict</code> or Pydantic model)
+that is passed between nodes and updated as the graph executes. Each node
+returns a partial update that is merged into the global state.</p>
+
+<h3>2.2 Nodes</h3>
+<p>Python functions (or Runnables) that receive the current state and return
+an updated state. A node can call an LLM, a tool, or arbitrary code.</p>
+
+<h3>2.3 Edges</h3>
+<ul>
+  <li><b>Normal edges</b> — always move from node A to node B</li>
+  <li><b>Conditional edges</b> — a routing function decides the next node,
+      enabling branching and cycles</li>
+</ul>
+
+<h3>2.4 Graph Types</h3>
+<p><code>StateGraph</code> is the primary graph builder. Two required
+special nodes are <code>START</code> and <code>END</code>, which mark entry
+and termination points of execution.</p>
+
+<h2>3. Persistence and Checkpoints</h2>
+<p>LangGraph ships a <b>checkpointer</b> (e.g. <code>MemorySaver</code>,
+<code>SqliteSaver</code>, <code>PostgresSaver</code>) that snapshots state
+after every super-step. This enables:</p>
+<ul>
+  <li>Resuming execution after a crash</li>
+  <li>Time-travel debugging (rewind to a prior checkpoint)</li>
+  <li>Human-in-the-loop interrupts before a sensitive node runs</li>
+</ul>
+
+<h2>4. Multi-Agent Patterns</h2>
+<table border="1" cellpadding="4">
+<tr><th>Pattern</th><th>Description</th></tr>
+<tr><td>Supervisor</td><td>A router node delegates tasks to worker agents</td></tr>
+<tr><td>Hierarchical teams</td><td>Supervisors of supervisors for large agent graphs</td></tr>
+<tr><td>Network</td><td>Agents can hand off control to any other agent directly</td></tr>
+</table>
+
+<h2>5. LangGraph vs. LangChain Chains</h2>
+<p>Plain LCEL chains are directed acyclic graphs (DAGs) executed once,
+top to bottom. LangGraph explicitly supports cycles, making it suited for
+agent loops that must re-plan, retry, or wait on human approval before
+continuing.</p>
+
+<h2>6. Deployment</h2>
+<p>LangGraph Platform (formerly LangGraph Cloud) provides one-click
+deployment, a hosted API, and LangGraph Studio, a visual debugger for
+inspecting graph runs step by step.</p>
+
+</body>
+</html>

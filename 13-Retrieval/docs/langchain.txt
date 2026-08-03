@@ -1,0 +1,67 @@
+LANGCHAIN FRAMEWORK OVERVIEW
+=============================
+
+1. WHAT IS LANGCHAIN
+---------------------
+LangChain is an open-source Python and JavaScript framework for building
+applications powered by large language models. It was created by Harrison
+Chase and first released in October 2022. LangChain standardizes the
+interfaces for prompts, chat models, embeddings, vector stores, and tools so
+that they can be swapped without rewriting application logic.
+
+2. CORE COMPONENTS
+-------------------
+
+2.1 Models
+    - ChatModels: wrap chat-style LLMs (OpenAI, Anthropic, etc.)
+    - LLMs: wrap plain text-completion models
+    - Embeddings: convert text into vectors for similarity search
+
+2.2 Prompts
+    - PromptTemplate: parameterized string templates
+    - ChatPromptTemplate: structured system/human/AI message templates
+    - Few-shot prompt templates for in-context learning
+
+2.3 Chains (LCEL)
+    - LangChain Expression Language (LCEL) composes components with the
+      pipe operator: prompt | model | output_parser
+    - Chains can run sequentially, in parallel (RunnableParallel), or
+      conditionally (RunnableBranch)
+
+2.4 Retrievers and Vector Stores
+    - Supported vector stores include FAISS, Chroma, Pinecone, Qdrant,
+      Weaviate, and Milvus
+    - Retrievers expose a uniform get_relevant_documents() interface
+    - Text splitters: CharacterTextSplitter, RecursiveCharacterTextSplitter
+      (default chunk_size=1000, chunk_overlap=200)
+
+2.5 Agents and Tools
+    - Agents let an LLM choose which tool to call and in what order
+    - Built-in agent types: ReAct, OpenAI Functions/Tools agent,
+      Structured Chat agent
+    - Tools: search, calculator, Python REPL, custom @tool functions
+
+2.6 Memory
+    - ConversationBufferMemory stores raw chat history
+    - ConversationSummaryMemory compresses history via an LLM summary
+    - Memory is being superseded by LangGraph's persistent state/checkpoints
+
+3. ECOSYSTEM PACKAGES
+----------------------
+    langchain-core    -> base abstractions and LCEL runtime
+    langchain-community -> third-party integrations
+    langchain-openai / langchain-anthropic -> provider-specific packages
+    langsmith         -> tracing, debugging, and evaluation platform
+
+4. TYPICAL USE CASES
+---------------------
+    - Retrieval-augmented Q&A chatbots
+    - Document summarization pipelines
+    - SQL / API query agents
+    - Multi-step autonomous agents (often built on top of LangGraph)
+
+5. VERSION NOTE
+----------------
+LangChain 0.1 (released January 2024) split the monolithic package into
+langchain-core, langchain-community, and partner packages to reduce
+dependency bloat and improve stability.

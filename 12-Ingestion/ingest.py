@@ -14,10 +14,18 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 
+required_formats = {
+    ".pdf": PyPDFLoader,
+    ".md": partial(TextLoader, encoding="utf-8"),
+    ".html": partial(TextLoader, encoding="utf-8"),
+}
 
-def fetch_docs(folder, formats):
 
-    docs = [file for file in folder.iterdir() if file.suffix in formats.keys()]
+def receiver(folder: str):
+
+    path = Path(folder)
+
+    docs = [file for file in path.iterdir() if file.suffix in required_formats.keys()]
 
     return docs
 
@@ -167,18 +175,11 @@ def chunking(docs):
     return chunks
 
 
-def main():
+def ingest():
 
     hash_store = set()
-    path = Path("docs")
 
-    required_formats = {
-        ".pdf": PyPDFLoader,
-        ".md": partial(TextLoader, encoding="utf-8"),
-        ".html": partial(TextLoader, encoding="utf-8"),
-    }
-
-    docs = fetch_docs(folder=path, formats=required_formats)
+    docs = receiver("docs")
 
     docs_text = loading_text(docs, required_formats)
 
@@ -196,4 +197,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ingest()

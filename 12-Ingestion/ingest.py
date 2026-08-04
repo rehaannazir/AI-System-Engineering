@@ -18,6 +18,7 @@ required_formats = {
     ".pdf": PyPDFLoader,
     ".md": partial(TextLoader, encoding="utf-8"),
     ".html": partial(TextLoader, encoding="utf-8"),
+    ".txt": partial(TextLoader, encoding="utf-8"),
 }
 
 
@@ -90,7 +91,11 @@ def text_chunking(doc):
 
     seperators_order = ["\n\n", "\n", " ", ""]
 
-    splitter = RecursiveCharacterTextSplitter(separators=seperators_order)
+    splitter = RecursiveCharacterTextSplitter(
+        separators=seperators_order,
+        chunk_size=500,
+        chunk_overlap=50,
+    )
 
     return splitter.split_documents([doc])
 
@@ -175,11 +180,11 @@ def chunking(docs):
     return chunks
 
 
-def ingest():
+def ingest(docs):
 
     hash_store = set()
 
-    docs = receiver("docs")
+    docs = receiver(docs)
 
     docs_text = loading_text(docs, required_formats)
 
@@ -191,10 +196,8 @@ def ingest():
 
     chunks = chunking(docs)
 
-    print(docs_normalize)
-
-    print(chunks)
+    return chunks
 
 
 if __name__ == "__main__":
-    ingest()
+    ingest(docs="docs")

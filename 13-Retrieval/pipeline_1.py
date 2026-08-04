@@ -13,6 +13,7 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 
+"--------------------------------------------------------------"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(REPO_ROOT / "12-Ingestion"))
 
@@ -24,6 +25,7 @@ required_formats = {
 }
 
 load_dotenv()
+"--------------------------------------------------------------"
 
 """
 DOCS -> Parent_Chunks -> Child_Chunks -> VectorStore(Chroma) -> DocStore (InMemory) -> ParentRetriever(all prev nodes) ->
